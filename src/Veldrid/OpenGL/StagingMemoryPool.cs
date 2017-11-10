@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -59,15 +60,16 @@ namespace Veldrid.OpenGL
 
     internal unsafe struct HandleTrackedStagingBlock
     {
-        public readonly GCHandle GCHandle;
+        private readonly int _index;
 
-        public byte[] Array => (byte[])GCHandle.Target;
+        public byte[] GetArray(List<object> objects) => (byte[])objects[_index];
 
         public uint SizeInBytes { get; }
 
-        public HandleTrackedStagingBlock(StagingBlock stagingBlock)
+        public HandleTrackedStagingBlock(List<object> objects, StagingBlock stagingBlock)
         {
-            GCHandle = GCHandle.Alloc(stagingBlock.Array, GCHandleType.Pinned);
+            _index = objects.Count;
+            objects.Add(stagingBlock.Array);
             SizeInBytes = stagingBlock.SizeInBytes;
         }
     }

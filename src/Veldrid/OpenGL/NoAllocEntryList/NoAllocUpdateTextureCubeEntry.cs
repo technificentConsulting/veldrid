@@ -13,8 +13,8 @@
         public readonly uint ArrayLayer;
 
         public NoAllocUpdateTextureCubeEntry(
-            Texture texture,
-            StagingBlock stagingBlock,
+            HandleTracked<Texture> texture,
+            HandleTrackedStagingBlock stagingBlock,
             CubeFace face,
             uint x,
             uint y,
@@ -24,7 +24,7 @@
             uint arrayLayer)
         {
             Texture = texture;
-            StagingBlock = new HandleTrackedStagingBlock(stagingBlock);
+            StagingBlock = stagingBlock;
             Face = face;
             X = x;
             Y = y;

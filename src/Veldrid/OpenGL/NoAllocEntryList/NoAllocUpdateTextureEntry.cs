@@ -14,8 +14,8 @@
         public readonly uint ArrayLayer;
 
         public NoAllocUpdateTextureEntry(
-            Texture texture,
-            StagingBlock stagingBlock,
+            HandleTracked<Texture> texture,
+            HandleTrackedStagingBlock stagingBlock,
             uint x,
             uint y,
             uint z,
@@ -26,7 +26,7 @@
             uint arrayLayer)
         {
             Texture = texture;
-            StagingBlock = new HandleTrackedStagingBlock(stagingBlock);
+            StagingBlock = stagingBlock;
             X = x;
             Y = y;
             Z = z;

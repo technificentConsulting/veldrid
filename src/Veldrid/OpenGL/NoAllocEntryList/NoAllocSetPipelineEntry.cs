@@ -4,9 +4,9 @@
     {
         public readonly HandleTracked<Pipeline> Pipeline;
 
-        public NoAllocSetPipelineEntry(Pipeline pipeline)
+        public NoAllocSetPipelineEntry(HandleTracked<Pipeline> pipeline)
         {
-            Pipeline = new HandleTracked<Pipeline>(pipeline);
+            Pipeline = pipeline;
         }
     }
 }

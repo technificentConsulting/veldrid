@@ -4,9 +4,9 @@
     {
         public readonly HandleTracked<IndexBuffer> IndexBuffer;
 
-        public NoAllocSetIndexBufferEntry(IndexBuffer ib)
+        public NoAllocSetIndexBufferEntry(HandleTracked<IndexBuffer> ib)
         {
-            IndexBuffer = new HandleTracked<IndexBuffer>(ib);
+            IndexBuffer = ib;
         }
     }
 }

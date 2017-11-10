@@ -13,6 +13,8 @@ namespace Veldrid.OpenGL.NoAllocEntryList
         private EntryStorageBlock _currentBlock;
         private uint _totalEntries;
 
+        private readonly List<object> _objects = new List<object>(100);
+
         // Entry IDs
         private const byte BeginEntryID = 1;
         private static readonly uint BeginEntrySize = Util.USizeOf<NoAllocBeginEntry>();
@@ -186,22 +188,22 @@ namespace Veldrid.OpenGL.NoAllocEntryList
                         break;
                     case SetFramebufferEntryID:
                         ref NoAllocSetFramebufferEntry sfbe = ref Unsafe.AsRef<NoAllocSetFramebufferEntry>(entryBasePtr);
-                        executor.SetFramebuffer(sfbe.Framebuffer);
+                        executor.SetFramebuffer(sfbe.Framebuffer.GetItem(_objects));
                         currentOffset += SetFramebufferEntrySize;
                         break;
                     case SetIndexBufferEntryID:
                         ref NoAllocSetIndexBufferEntry sibe = ref Unsafe.AsRef<NoAllocSetIndexBufferEntry>(entryBasePtr);
-                        executor.SetIndexBuffer(sibe.IndexBuffer.Item);
+                        executor.SetIndexBuffer(sibe.IndexBuffer.GetItem(_objects));
                         currentOffset += SetIndexBufferEntrySize;
                         break;
                     case SetPipelineEntryID:
                         ref NoAllocSetPipelineEntry spe = ref Unsafe.AsRef<NoAllocSetPipelineEntry>(entryBasePtr);
-                        executor.SetPipeline(spe.Pipeline);
+                        executor.SetPipeline(spe.Pipeline.GetItem(_objects));
                         currentOffset += SetPipelineEntrySize;
                         break;
                     case SetResourceSetEntryID:
                         ref NoAllocSetResourceSetEntry srse = ref Unsafe.AsRef<NoAllocSetResourceSetEntry>(entryBasePtr);
-                        executor.SetResourceSet(srse.Slot, srse.ResourceSet);
+                        executor.SetResourceSet(srse.Slot, srse.ResourceSet.GetItem(_objects));
                         currentOffset += SetResourceSetEntrySize;
                         break;
                     case SetScissorRectEntryID:
@@ -211,7 +213,7 @@ namespace Veldrid.OpenGL.NoAllocEntryList
                         break;
                     case SetVertexBufferEntryID:
                         ref NoAllocSetVertexBufferEntry svbe = ref Unsafe.AsRef<NoAllocSetVertexBufferEntry>(entryBasePtr);
-                        executor.SetVertexBuffer(svbe.Index, svbe.VertexBuffer.Item);
+                        executor.SetVertexBuffer(svbe.Index, svbe.VertexBuffer.GetItem(_objects));
                         currentOffset += SetVertexBufferEntrySize;
                         break;
                     case SetViewportEntryID:
@@ -222,16 +224,16 @@ namespace Veldrid.OpenGL.NoAllocEntryList
                     case UpdateBufferEntryID:
                         ref NoAllocUpdateBufferEntry ube = ref Unsafe.AsRef<NoAllocUpdateBufferEntry>(entryBasePtr);
                         executor.UpdateBuffer(
-                            ube.Buffer.Item, 
-                            ube.BufferOffsetInBytes, 
-                            new StagingBlock(ube.StagingBlock.Array, ube.StagingBlock.SizeInBytes, _memoryPool));
+                            ube.Buffer.GetItem(_objects),
+                            ube.BufferOffsetInBytes,
+                            new StagingBlock(ube.StagingBlock.GetArray(_objects), ube.StagingBlock.SizeInBytes, _memoryPool));
                         currentOffset += UpdateBufferEntrySize;
                         break;
                     case UpdateTextureEntryID:
                         ref NoAllocUpdateTextureEntry ute = ref Unsafe.AsRef<NoAllocUpdateTextureEntry>(entryBasePtr);
                         executor.UpdateTexture(
-                            ute.Texture,
-                            new StagingBlock(ute.StagingBlock.Array, ute.StagingBlock.SizeInBytes, _memoryPool),
+                            ute.Texture.GetItem(_objects),
+                            new StagingBlock(ute.StagingBlock.GetArray(_objects), ute.StagingBlock.SizeInBytes, _memoryPool),
                             ute.X,
                             ute.Y,
                             ute.Z,
@@ -245,8 +247,8 @@ namespace Veldrid.OpenGL.NoAllocEntryList
                     case UpdateTextureCubeEntryID:
                         ref NoAllocUpdateTextureCubeEntry utce = ref Unsafe.AsRef<NoAllocUpdateTextureCubeEntry>(entryBasePtr);
                         executor.UpdateTextureCube(
-                            utce.Texture,
-                            new StagingBlock(utce.StagingBlock.Array, utce.StagingBlock.SizeInBytes, _memoryPool),
+                            utce.Texture.GetItem(_objects),
+                            new StagingBlock(utce.StagingBlock.GetArray(_objects), utce.StagingBlock.SizeInBytes, _memoryPool),
                             utce.Face,
                             utce.X,
                             utce.Y,
@@ -258,7 +260,7 @@ namespace Veldrid.OpenGL.NoAllocEntryList
                         break;
                     case ResolveTextureEntryID:
                         ref NoAllocResolveTextureEntry rte = ref Unsafe.AsRef<NoAllocResolveTextureEntry>(entryBasePtr);
-                        executor.ResolveTexture(rte.Source.Item, rte.Destination.Item);
+                        executor.ResolveTexture(rte.Source.GetItem(_objects), rte.Destination.GetItem(_objects));
                         currentOffset += ResolveTextureEntrySize;
                         break;
                     default:
@@ -269,106 +271,7 @@ namespace Veldrid.OpenGL.NoAllocEntryList
 
         private void FreeAllHandles()
         {
-            int currentBlockIndex = 0;
-            EntryStorageBlock block = _blocks[currentBlockIndex];
-            uint currentOffset = 0;
-            for (uint i = 0; i < _totalEntries; i++)
-            {
-                if (currentOffset == block.TotalSize)
-                {
-                    currentBlockIndex += 1;
-                    block = _blocks[currentBlockIndex];
-                    currentOffset = 0;
-                }
-
-                uint id = Unsafe.Read<byte>(block.BasePtr + currentOffset);
-                if (id == 0)
-                {
-                    currentBlockIndex += 1;
-                    block = _blocks[currentBlockIndex];
-                    currentOffset = 0;
-                    id = Unsafe.Read<byte>(block.BasePtr + currentOffset);
-                }
-
-                Debug.Assert(id != 0);
-                currentOffset += 1;
-                byte* entryBasePtr = block.BasePtr + currentOffset;
-                switch (id)
-                {
-                    case BeginEntryID:
-                        currentOffset += BeginEntrySize;
-                        break;
-                    case ClearColorTargetID:
-                        currentOffset += ClearColorTargetEntrySize;
-                        break;
-                    case ClearDepthTargetID:
-                        currentOffset += ClearDepthTargetEntrySize;
-                        break;
-                    case DrawEntryID:
-                        currentOffset += DrawEntrySize;
-                        break;
-                    case EndEntryID:
-                        currentOffset += EndEntrySize;
-                        break;
-                    case SetFramebufferEntryID:
-                        ref NoAllocSetFramebufferEntry sfbe = ref Unsafe.AsRef<NoAllocSetFramebufferEntry>(entryBasePtr);
-                        sfbe.Framebuffer.Free();
-                        currentOffset += SetFramebufferEntrySize;
-                        break;
-                    case SetIndexBufferEntryID:
-                        ref NoAllocSetIndexBufferEntry sibe = ref Unsafe.AsRef<NoAllocSetIndexBufferEntry>(entryBasePtr);
-                        sibe.IndexBuffer.Free();
-                        currentOffset += SetIndexBufferEntrySize;
-                        break;
-                    case SetPipelineEntryID:
-                        ref NoAllocSetPipelineEntry spe = ref Unsafe.AsRef<NoAllocSetPipelineEntry>(entryBasePtr);
-                        spe.Pipeline.Free();
-                        currentOffset += SetPipelineEntrySize;
-                        break;
-                    case SetResourceSetEntryID:
-                        ref NoAllocSetResourceSetEntry srse = ref Unsafe.AsRef<NoAllocSetResourceSetEntry>(entryBasePtr);
-                        srse.ResourceSet.Free();
-                        currentOffset += SetResourceSetEntrySize;
-                        break;
-                    case SetScissorRectEntryID:
-                        currentOffset += SetScissorRectEntrySize;
-                        break;
-                    case SetVertexBufferEntryID:
-                        ref NoAllocSetVertexBufferEntry svbe = ref Unsafe.AsRef<NoAllocSetVertexBufferEntry>(entryBasePtr);
-                        svbe.VertexBuffer.Free();
-                        currentOffset += SetVertexBufferEntrySize;
-                        break;
-                    case SetViewportEntryID:
-                        currentOffset += SetViewportEntrySize;
-                        break;
-                    case UpdateBufferEntryID:
-                        ref NoAllocUpdateBufferEntry ube = ref Unsafe.AsRef<NoAllocUpdateBufferEntry>(entryBasePtr);
-                        ube.Buffer.Free();
-                        ube.StagingBlock.GCHandle.Free();
-                        currentOffset += UpdateBufferEntrySize;
-                        break;
-                    case UpdateTextureEntryID:
-                        ref NoAllocUpdateTextureEntry ute = ref Unsafe.AsRef<NoAllocUpdateTextureEntry>(entryBasePtr);
-                        ute.Texture.Free();
-                        ute.StagingBlock.GCHandle.Free();
-                        currentOffset += UpdateTextureEntrySize;
-                        break;
-                    case UpdateTextureCubeEntryID:
-                        ref NoAllocUpdateTextureCubeEntry utce = ref Unsafe.AsRef<NoAllocUpdateTextureCubeEntry>(entryBasePtr);
-                        utce.Texture.Free();
-                        utce.StagingBlock.GCHandle.Free();
-                        currentOffset += UpdateTextureCubeEntrySize;
-                        break;
-                    case ResolveTextureEntryID:
-                        ref NoAllocResolveTextureEntry rte = ref Unsafe.AsRef<NoAllocResolveTextureEntry>(entryBasePtr);
-                        rte.Source.Free();
-                        rte.Destination.Free();
-                        currentOffset += ResolveTextureEntrySize;
-                        break;
-                    default:
-                        throw new InvalidOperationException("Invalid entry ID: " + id);
-                }
-            }
+            _objects.Clear();
         }
 
         public void Begin()
@@ -403,25 +306,25 @@ namespace Veldrid.OpenGL.NoAllocEntryList
 
         public void SetFramebuffer(Framebuffer fb)
         {
-            NoAllocSetFramebufferEntry entry = new NoAllocSetFramebufferEntry(fb);
+            NoAllocSetFramebufferEntry entry = new NoAllocSetFramebufferEntry(new HandleTracked<Framebuffer>(_objects, fb));
             AddEntry(SetFramebufferEntryID, ref entry);
         }
 
         public void SetIndexBuffer(IndexBuffer ib)
         {
-            NoAllocSetIndexBufferEntry entry = new NoAllocSetIndexBufferEntry(ib);
+            NoAllocSetIndexBufferEntry entry = new NoAllocSetIndexBufferEntry(new HandleTracked<IndexBuffer>(_objects, ib));
             AddEntry(SetIndexBufferEntryID, ref entry);
         }
 
         public void SetPipeline(Pipeline pipeline)
         {
-            NoAllocSetPipelineEntry entry = new NoAllocSetPipelineEntry(pipeline);
+            NoAllocSetPipelineEntry entry = new NoAllocSetPipelineEntry(new HandleTracked<Pipeline>(_objects, pipeline));
             AddEntry(SetPipelineEntryID, ref entry);
         }
 
         public void SetResourceSet(uint slot, ResourceSet rs)
         {
-            NoAllocSetResourceSetEntry entry = new NoAllocSetResourceSetEntry(slot, rs);
+            NoAllocSetResourceSetEntry entry = new NoAllocSetResourceSetEntry(slot, new HandleTracked<ResourceSet>(_objects, rs));
             AddEntry(SetResourceSetEntryID, ref entry);
         }
 
@@ -433,7 +336,7 @@ namespace Veldrid.OpenGL.NoAllocEntryList
 
         public void SetVertexBuffer(uint index, VertexBuffer vb)
         {
-            NoAllocSetVertexBufferEntry entry = new NoAllocSetVertexBufferEntry(index, vb);
+            NoAllocSetVertexBufferEntry entry = new NoAllocSetVertexBufferEntry(index, new HandleTracked<VertexBuffer>(_objects, vb));
             AddEntry(SetVertexBufferEntryID, ref entry);
         }
 
@@ -445,14 +348,19 @@ namespace Veldrid.OpenGL.NoAllocEntryList
 
         public void ResolveTexture(Texture source, Texture destination)
         {
-            NoAllocResolveTextureEntry entry = new NoAllocResolveTextureEntry(source, destination);
+            NoAllocResolveTextureEntry entry = new NoAllocResolveTextureEntry(
+                new HandleTracked<Texture>(_objects, source),
+                new HandleTracked<Texture>(_objects, destination));
             AddEntry(ResolveTextureEntryID, ref entry);
         }
 
         public void UpdateBuffer(Buffer buffer, uint bufferOffsetInBytes, IntPtr source, uint sizeInBytes)
         {
             StagingBlock stagingBlock = _memoryPool.Stage(source, sizeInBytes);
-            NoAllocUpdateBufferEntry entry = new NoAllocUpdateBufferEntry(buffer, bufferOffsetInBytes, stagingBlock);
+            NoAllocUpdateBufferEntry entry = new NoAllocUpdateBufferEntry(
+                new HandleTracked<Buffer>(_objects, buffer),
+                bufferOffsetInBytes,
+                new HandleTrackedStagingBlock(_objects, stagingBlock));
             AddEntry(UpdateBufferEntryID, ref entry);
         }
 
@@ -471,8 +379,8 @@ namespace Veldrid.OpenGL.NoAllocEntryList
         {
             StagingBlock stagingBlock = _memoryPool.Stage(source, sizeInBytes);
             NoAllocUpdateTextureEntry entry = new NoAllocUpdateTextureEntry(
-                texture,
-                stagingBlock,
+                new HandleTracked<Texture>(_objects, texture),
+                new HandleTrackedStagingBlock(_objects, stagingBlock),
                 x,
                 y,
                 z,
@@ -498,8 +406,8 @@ namespace Veldrid.OpenGL.NoAllocEntryList
         {
             StagingBlock stagingBlock = _memoryPool.Stage(source, sizeInBytes);
             NoAllocUpdateTextureCubeEntry entry = new NoAllocUpdateTextureCubeEntry(
-                textureCube,
-                stagingBlock,
+                new HandleTracked<Texture>(_objects, textureCube),
+                new HandleTrackedStagingBlock(_objects, stagingBlock),
                 face,
                 x,
                 y,
@@ -578,20 +486,14 @@ namespace Veldrid.OpenGL.NoAllocEntryList
 
     internal struct HandleTracked<T> where T : class
     {
-        public T Item => (T)_gcHandle.Target;
-        private readonly GCHandle _gcHandle;
+        private readonly int _index;
 
-        public HandleTracked(T item)
+        public T GetItem(List<object> objects) => (T)objects[_index];
+
+        public HandleTracked(List<object> objects, T item)
         {
-            _gcHandle = GCHandle.Alloc(item);
+            _index = objects.Count;
+            objects.Add(item);
         }
-
-        public void Free()
-        {
-            _gcHandle.Free();
-        }
-
-        public static implicit operator HandleTracked<T>(T item) => new HandleTracked<T>(item);
-        public static implicit operator T(HandleTracked<T> tracked) => tracked.Item;
     }
 }

@@ -5,10 +5,10 @@
         public readonly HandleTracked<Texture> Source;
         public readonly HandleTracked<Texture> Destination;
 
-        public NoAllocResolveTextureEntry(Texture source, Texture destination)
+        public NoAllocResolveTextureEntry(HandleTracked<Texture> source, HandleTracked<Texture> destination)
         {
-            Source = new HandleTracked<Texture>(source);
-            Destination = new HandleTracked<Texture>(destination);
+            Source = source;
+            Destination = destination;
         }
     }
 }

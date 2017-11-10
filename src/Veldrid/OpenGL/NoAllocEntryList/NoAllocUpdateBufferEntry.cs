@@ -8,11 +8,11 @@ namespace Veldrid.OpenGL.NoAllocEntryList
         public readonly uint BufferOffsetInBytes;
         public readonly HandleTrackedStagingBlock StagingBlock;
 
-        public NoAllocUpdateBufferEntry(Buffer buffer, uint bufferOffsetInBytes, StagingBlock stagingBlock)
+        public NoAllocUpdateBufferEntry(HandleTracked<Buffer> buffer, uint bufferOffsetInBytes, HandleTrackedStagingBlock stagingBlock)
         {
-            Buffer = new HandleTracked<Buffer>(buffer);
+            Buffer = buffer;
             BufferOffsetInBytes = bufferOffsetInBytes;
-            StagingBlock = new HandleTrackedStagingBlock(stagingBlock);
+            StagingBlock = stagingBlock;
         }
     }
 }
