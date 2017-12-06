@@ -483,6 +483,7 @@ namespace Veldrid.Vk
             deviceFeatures.geometryShader = true;
             deviceFeatures.depthClamp = true;
             deviceFeatures.multiViewport = true;
+            deviceFeatures.textureCompressionBC = true;
 
             bool debugMarkerSupported = false;
 
